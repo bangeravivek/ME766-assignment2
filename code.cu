@@ -4,42 +4,43 @@ This program generates 2 N*N matrices and then multiplies them on a GPU
 
 
 #include<stdio.h>
+#include<math.h>
 #include<cuda.h>
 //#define N 100
 
-__global__ void multiply(double* A, double* B, double* C, int K)
+__global__ void multiply(float* A, float* B, float* C, int K)
 {
-	int index1=threadIdx.x*K+threadIdx.y;
-	int index2=threadIdx.y*K+threadIdx.x;
-	double sum=0.0;
+	int index1=blockIdx.x*blockDim.x+threadIdx.x;
+	int index2=blockIdx.x*blockDim.y+threadIdx.y;
+	float sum=0.0;
 	for (int i=0;i<K;i++)
 	{
-		sum+=A[index1]*B[index2];
+		sum+=A[index2*K+i]*B[i*K+index1];
 	}
 	
-	C[index1+index2]=sum;
+	C[index2*K+index1]=sum;
 }
 
-double** Make2DdoubleArray(int arraySizeX, int arraySizeY) {
-double** theArray;
-theArray = (double**) malloc(arraySizeX*sizeof(double*));
+float** Make2DfloatArray(int arraySizeX, int arraySizeY) {
+float** theArray;
+theArray = (float**) malloc(arraySizeX*sizeof(float*));
 int i;
 for (i = 0; i < arraySizeX; i++)
-   theArray[i] = (double*) malloc(arraySizeY*sizeof(double));
+   theArray[i] = (float*) malloc(arraySizeY*sizeof(float));
 int j;
 
 for (i=0;i<arraySizeX;i++)
 {
     for (j=0;j<arraySizeY;j++)
     {
-        theArray[i][j]=((double)rand())/(double)(100);
+        theArray[i][j]=rand()%100;
     }
 }
 
    return theArray;
 }
 
-void init_zeros(double** matrix, int K)
+void init_zeros(float** matrix, int K)
 {
 	int i,j;
 	for (i=0;i<K;i++)
@@ -51,9 +52,9 @@ void init_zeros(double** matrix, int K)
 	}
 }
 
-double* Make1DdoubleArray(int arraySizeX) {
-double* theArray;
-theArray = (double*)malloc(arraySizeX*sizeof(double));
+float* Make1DfloatArray(int arraySizeX) {
+float* theArray;
+theArray = (float*)malloc(arraySizeX*sizeof(float));
 int i;
 for (i=0;i<arraySizeX;i++)
 {
@@ -63,7 +64,7 @@ for (i=0;i<arraySizeX;i++)
    return theArray;
 }
 
-void printmat(double** matrix, int K)
+void printmat(float** matrix, int K)
 {
 	int i,j;
 	
@@ -82,21 +83,24 @@ void printmat(double** matrix, int K)
 int main(int argc, char *argv[])
 {
 	const int K = 5;
-	double** M1=Make2DdoubleArray(K,K);
-	double** M2=Make2DdoubleArray(K,K);
-	double** Prod=Make2DdoubleArray(K,K);
+	float** M1=Make2DfloatArray(K,K);
+	float** M2=Make2DfloatArray(K,K);
+	float** Prod=Make2DfloatArray(K,K);
 	
 	init_zeros(Prod, K);
 	
-	double* M1_host_flat=Make1DdoubleArray(K*K);
-	double* M2_host_flat=Make1DdoubleArray(K*K);
-	double* Prod_host_flat=Make1DdoubleArray(K*K);
+	float* M1_host_flat=Make1DfloatArray(K*K);
+	float* M2_host_flat=Make1DfloatArray(K*K);
+	float* Prod_host_flat=Make1DfloatArray(K*K);
 	
-	double* M1_device_flat;
-	double* M2_device_flat;
-	double* Prod_device_flat;
+	float* M1_device_flat;
+	float* M2_device_flat;
+	float* Prod_device_flat;
 	int* K_device;
 	
+	printmat(M1,K);
+	printmat(M2,K);
+	printmat(Prod,K);
 	int counter=0;
 	int i,j;
 	for(i=0;i<K;i++)
@@ -111,14 +115,14 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	cudaMalloc((void **) &M1_device_flat, sizeof(double)*K*K);
-	cudaMalloc((void **) &M2_device_flat, sizeof(double)*K*K);
-	cudaMalloc((void **) &Prod_device_flat, sizeof(double)*K*K);
+	cudaMalloc((void **) &M1_device_flat, sizeof(float)*K*K);
+	cudaMalloc((void **) &M2_device_flat, sizeof(float)*K*K);
+	cudaMalloc((void **) &Prod_device_flat, sizeof(float)*K*K);
 	cudaMalloc((void **) &K_device, sizeof(int));
 	
-	cudaMemcpy(M1_device_flat, M1_host_flat, sizeof(double)*K*K, cudaMemcpyHostToDevice);
-	cudaMemcpy(M2_device_flat, M2_host_flat, sizeof(double)*K*K, cudaMemcpyHostToDevice);
-	cudaMemcpy(Prod_device_flat, Prod_host_flat, sizeof(double)*K*K, cudaMemcpyHostToDevice);
+	cudaMemcpy(M1_device_flat, M1_host_flat, sizeof(float)*K*K, cudaMemcpyHostToDevice);
+	cudaMemcpy(M2_device_flat, M2_host_flat, sizeof(float)*K*K, cudaMemcpyHostToDevice);
+	cudaMemcpy(Prod_device_flat, Prod_host_flat, sizeof(float)*K*K, cudaMemcpyHostToDevice);
 	cudaMemcpy(K_device, &K, sizeof(int), cudaMemcpyHostToDevice);
 	//Kernel call
 	dim3 threads(K,K);
