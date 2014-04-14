@@ -4,14 +4,18 @@ This program generates 2 N*N matrices and then multiplies them on a GPU
 
 
 #include<stdio.h>
+#include<stdlib.h>
 #include<math.h>
 #include<cuda.h>
 //#define N 100
 
 __global__ void multiply(float* A, float* B, float* C, int K)
 {
+	//printf("\n Entered kernel");
 	int index1=blockIdx.x*blockDim.x+threadIdx.x;
-	int index2=blockIdx.x*blockDim.y+threadIdx.y;
+	int index2=blockIdx.y*blockDim.y+threadIdx.y; 
+	//printf("\n Index 1 = %d", index1);
+	//printf("\n Index 2 = %d", index2);
 	float sum=0.0;
 	for (int i=0;i<K;i++)
 	{
@@ -78,11 +82,45 @@ void printmat(float** matrix, int K)
 	}
 	printf("\n");
 }
- 
+
+void printtofile(float** matrix, int K, char* filename)
+{
+	FILE *fp;
+	fp=fopen(filename,"wt");
+	int i,j;
+	for (i=0;i<K;i++)
+	{
+		fprintf(fp, "\n");
+		for (j=0;j<K;j++)
+		{
+			fprintf(fp, "%f\t", matrix[i][j]);
+		}
+	}
+}
+
+void printtofile(float* matrix, int K, char* filename)
+{
+	FILE *fp;
+	fp=fopen(filename,"wt");
+	int i,j;
+	int counter=0;
+	for (i=0;i<K;i++)
+	{
+		fprintf(fp, "\n");
+		for (j=0;j<K;j++)
+		{
+			fprintf(fp, "%f\t", matrix[counter]);
+			counter++;
+		}
+	}
+}
+	 
  
 int main(int argc, char *argv[])
 {
-	const int K = 5;
+	const int K = 10000;
+	const int blocks=K/200;
+	const int threadblocks=K/blocks;
 	float** M1=Make2DfloatArray(K,K);
 	float** M2=Make2DfloatArray(K,K);
 	float** Prod=Make2DfloatArray(K,K);
@@ -98,9 +136,9 @@ int main(int argc, char *argv[])
 	float* Prod_device_flat;
 	int* K_device;
 	
-	printmat(M1,K);
-	printmat(M2,K);
-	printmat(Prod,K);
+	printtofile(M1,K,"M1.txt");
+	printtofile(M2,K,"M2.txt");
+	printtofile(Prod,K,"Prod.txt");
 	int counter=0;
 	int i,j;
 	for(i=0;i<K;i++)
@@ -125,12 +163,14 @@ int main(int argc, char *argv[])
 	cudaMemcpy(Prod_device_flat, Prod_host_flat, sizeof(float)*K*K, cudaMemcpyHostToDevice);
 	cudaMemcpy(K_device, &K, sizeof(int), cudaMemcpyHostToDevice);
 	//Kernel call
-	dim3 threads(K,K);
-	multiply<<<1,threads>>>(M1_device_flat,M2_device_flat,Prod_device_flat, K); 
+	dim3 threads(threadblocks,threadblocks);
+	dim3 grid(blocks,blocks);
+	printf("\n Calling the multiply kernel");
+	multiply<<<grid,threads>>>(M1_device_flat,M2_device_flat,Prod_device_flat, K); 
 	//Copy data back to host
-	
+	printf("\n Back in host\n");
 	cudaMemcpy(Prod_host_flat, Prod_device_flat, sizeof(int)*K*K, cudaMemcpyDeviceToHost);	
-	
+	/*
 	counter=0;
 	printf("\n");
 	printf("\n");
@@ -146,7 +186,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	printf("\n");
-
+	*/
+	printtofile(Prod_host_flat,K,"Prod_result.txt");
 	
 	
 	return 0;	
