@@ -12,11 +12,12 @@ This program generates 2 N*N matrices and then multiplies them on a GPU
 
 __global__ void multiply(float* A, float* B, float* C, int K)
 {
+	/*
+	The Kernel is a 2D grid. Tried doing the same with a 1D grid but it requires 2 for loops
+	*/
 	//printf("\n Entered kernel");
 	int index1=blockIdx.x*blockDim.x+threadIdx.x;
 	int index2=blockIdx.y*blockDim.y+threadIdx.y; 
-	//printf("\n Index 1 = %d", index1);
-	//printf("\n Index 2 = %d", index2);
 	float sum=0.0;
 	for (int i=0;i<K;i++)
 	{
@@ -128,7 +129,8 @@ void freese(int sizeX, float** ptr)
  
 int main(int argc, char *argv[])
 {
-	const int K = 10000;
+
+	const int K = 1000;
 	const int blocks=K/20;
 	const int threadblocks=K/blocks;
 	float** M1=Make2DfloatArray(K,K);
@@ -146,9 +148,15 @@ int main(int argc, char *argv[])
 	float* Prod_device_flat;
 	int* K_device;
 	printf("\n Everything initialized");
-	//printtofile(M1,K,"M1.txt");
-	//printtofile(M2,K,"M2.txt");
-	//printtofile(Prod,K,"Prod.txt");
+
+	printtofile(M1,K,"M1.txt");
+	printtofile(M2,K,"M2.txt");
+	printtofile(Prod,K,"Prod.txt");
+
+	printtofile(M1,K,"M1.txt");
+	printtofile(M2,K,"M2.txt");
+	printtofile(Prod,K,"Prod.txt");
+
 	int counter=0;
 	int i,j;
 	for(i=0;i<K;i++)
