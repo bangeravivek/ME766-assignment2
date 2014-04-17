@@ -130,13 +130,20 @@ void freese(int sizeX, float** ptr)
 int main(int argc, char *argv[])
 {
 
-	const int K = 1000;
+	const int K = 100;
 	const int blocks=K/20;
 	const int threadblocks=K/blocks;
 	float** M1=Make2DfloatArray(K,K);
 	float** M2=Make2DfloatArray(K,K);
 	float** Prod=Make2DfloatArray(K,K);
 	
+	cudaEvent_t start, stop, start_kernel, stop_kernel;
+	float time, time_kernel;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	cudaEventCreate(&start_kernel);
+	cudaEventCreate(&stop_kernel);
+		
 	init_zeros(Prod, K);
 	
 	float* M1_host_flat=Make1DfloatArray(K*K);
@@ -153,9 +160,6 @@ int main(int argc, char *argv[])
 	printtofile(M2,K,"M2.txt");
 	printtofile(Prod,K,"Prod.txt");
 
-	printtofile(M1,K,"M1.txt");
-	printtofile(M2,K,"M2.txt");
-	printtofile(Prod,K,"Prod.txt");
 
 	int counter=0;
 	int i,j;
@@ -171,7 +175,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	printf("\n Converted to flat");
+	//printf("\n Converted to flat");
+	cudaEventRecord(start,0);
 	cudaMalloc((void **) &M1_device_flat, sizeof(float)*K*K);
 	cudaMalloc((void **) &M2_device_flat, sizeof(float)*K*K);
 	cudaMalloc((void **) &Prod_device_flat, sizeof(float)*K*K);
@@ -184,11 +189,20 @@ int main(int argc, char *argv[])
 	//Kernel call
 	dim3 threads(threadblocks,threadblocks);
 	dim3 grid(blocks,blocks);
-	printf("\n Calling the multiply kernel");
+	cudaEventRecord(start_kernel,0);
+	//printf("\n Calling the multiply kernel");
 	multiply<<<grid,threads>>>(M1_device_flat,M2_device_flat,Prod_device_flat, K); 
+	cudaEventRecord(stop_kernel,0);
 	//Copy data back to host
-	printf("\n Back in host\n");
+	//printf("\n Back in host\n");
 	cudaMemcpy(Prod_host_flat, Prod_device_flat, sizeof(int)*K*K, cudaMemcpyDeviceToHost);	
+	cudaEventRecord(stop,0);
+	cudaEventSynchronize(stop);
+
+	cudaEventElapsedTime(&time, start, stop);
+	cudaEventElapsedTime(&time_kernel, start_kernel, stop_kernel);
+	printf("\nTime for kernel with data transfer = %f ms \n", time);
+	printf("\nTime for kernel without data transfer = %f ms \n", time_kernel); 
 	/*
 	counter=0;
 	printf("\n");
@@ -206,8 +220,9 @@ int main(int argc, char *argv[])
 	}
 	printf("\n");
 	*/
+	
 	printtofile1D(Prod_host_flat,K,"Prod_result.txt");
-	sleep(5);
+	
 	cudaFree(M1_device_flat);
 	cudaFree(M2_device_flat);
 	cudaFree(Prod_device_flat);
