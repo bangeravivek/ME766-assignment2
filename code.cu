@@ -7,6 +7,7 @@ This program generates 2 N*N matrices and then multiplies them on a GPU
 #include<stdlib.h>
 #include<math.h>
 #include<cuda.h>
+#include<unistd.h>
 //#define N 100
 
 __global__ void multiply(float* A, float* B, float* C, int K)
@@ -37,7 +38,7 @@ for (i=0;i<arraySizeX;i++)
 {
     for (j=0;j<arraySizeY;j++)
     {
-        theArray[i][j]=rand()%100;
+        theArray[i][j]=rand()%5;
     }
 }
 
@@ -98,28 +99,37 @@ void printtofile(float** matrix, int K, char* filename)
 	}
 }
 
-void printtofile(float* matrix, int K, char* filename)
+void printtofile1D(float* matrix, int K, char* filename)
 {
 	FILE *fp;
 	fp=fopen(filename,"wt");
 	int i,j;
-	int counter=0;
+	int counters=0;
 	for (i=0;i<K;i++)
 	{
 		fprintf(fp, "\n");
 		for (j=0;j<K;j++)
 		{
-			fprintf(fp, "%f\t", matrix[counter]);
-			counter++;
+			fprintf(fp, "%f \t", matrix[counters]);
+			counters++;
 		}
 	}
 }
+
+void freese(int sizeX, float** ptr)
+{
+    int i;
+     for (i=0;i<sizeX;i++)
+        free(ptr[i]);
+    free(ptr);
+}
+
 	 
  
 int main(int argc, char *argv[])
 {
 	const int K = 10000;
-	const int blocks=K/200;
+	const int blocks=K/20;
 	const int threadblocks=K/blocks;
 	float** M1=Make2DfloatArray(K,K);
 	float** M2=Make2DfloatArray(K,K);
@@ -135,10 +145,10 @@ int main(int argc, char *argv[])
 	float* M2_device_flat;
 	float* Prod_device_flat;
 	int* K_device;
-	
-	printtofile(M1,K,"M1.txt");
-	printtofile(M2,K,"M2.txt");
-	printtofile(Prod,K,"Prod.txt");
+	printf("\n Everything initialized");
+	//printtofile(M1,K,"M1.txt");
+	//printtofile(M2,K,"M2.txt");
+	//printtofile(Prod,K,"Prod.txt");
 	int counter=0;
 	int i,j;
 	for(i=0;i<K;i++)
@@ -153,6 +163,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
+	printf("\n Converted to flat");
 	cudaMalloc((void **) &M1_device_flat, sizeof(float)*K*K);
 	cudaMalloc((void **) &M2_device_flat, sizeof(float)*K*K);
 	cudaMalloc((void **) &Prod_device_flat, sizeof(float)*K*K);
@@ -187,8 +198,18 @@ int main(int argc, char *argv[])
 	}
 	printf("\n");
 	*/
-	printtofile(Prod_host_flat,K,"Prod_result.txt");
-	
+	printtofile1D(Prod_host_flat,K,"Prod_result.txt");
+	sleep(5);
+	cudaFree(M1_device_flat);
+	cudaFree(M2_device_flat);
+	cudaFree(Prod_device_flat);
+	cudaFree(K_device);
+	freese(K,M1);
+	freese(K,M2);
+	freese(K,Prod);
+	free(M1_host_flat);
+	free(M2_host_flat);
+	free(Prod_host_flat);
 	
 	return 0;	
 }
