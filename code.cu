@@ -15,7 +15,6 @@ __global__ void multiply(float* A, float* B, float* C, int K)
 	/*
 	The Kernel is a 2D grid. Tried doing the same with a 1D grid but it requires 2 for loops
 	*/
-	//printf("\n Entered kernel");
 	int index1=blockIdx.x*blockDim.x+threadIdx.x;
 	int index2=blockIdx.y*blockDim.y+threadIdx.y; 
 	float sum=0.0;
@@ -27,27 +26,34 @@ __global__ void multiply(float* A, float* B, float* C, int K)
 	C[index2*K+index1]=sum;
 }
 
-float** Make2DfloatArray(int arraySizeX, int arraySizeY) {
-float** theArray;
-theArray = (float**) malloc(arraySizeX*sizeof(float*));
-int i;
-for (i = 0; i < arraySizeX; i++)
-   theArray[i] = (float*) malloc(arraySizeY*sizeof(float));
-int j;
-
-for (i=0;i<arraySizeX;i++)
+float** Make2DfloatArray(int arraySizeX, int arraySizeY) 
 {
-    for (j=0;j<arraySizeY;j++)
-    {
-        theArray[i][j]=rand()%5;
-    }
-}
+	/*
+	Generates a 2D matrix of dimension arraySizeX * arraySizeY
+	*/
+	float** theArray;
+	theArray = (float**) malloc(arraySizeX*sizeof(float*));
+	int i;
+	for (i = 0; i < arraySizeX; i++)
+   		theArray[i] = (float*) malloc(arraySizeY*sizeof(float));
+	int j;
 
-   return theArray;
+	for (i=0;i<arraySizeX;i++)
+	{
+    		for (j=0;j<arraySizeY;j++)
+    		{
+        		theArray[i][j]=rand()%5;
+    		}
+	}
+
+   	return theArray;
 }
 
 void init_zeros(float** matrix, int K)
 {
+	/*
+	Initializes a matrix to zeros
+	*/
 	int i,j;
 	for (i=0;i<K;i++)
 	{	
@@ -58,20 +64,27 @@ void init_zeros(float** matrix, int K)
 	}
 }
 
-float* Make1DfloatArray(int arraySizeX) {
-float* theArray;
-theArray = (float*)malloc(arraySizeX*sizeof(float));
-int i;
-for (i=0;i<arraySizeX;i++)
+float* Make1DfloatArray(int arraySizeX)
 {
-    theArray[i]=0.0;
-}
+	/*
+	Generates a 1D float array of size arraySizeX
+	*/
+	float* theArray;
+	theArray = (float*)malloc(arraySizeX*sizeof(float));
+	int i;
+	for (i=0;i<arraySizeX;i++)
+	{
+    		theArray[i]=0.0;
+	}
 
-   return theArray;
+   	return theArray;
 }
 
 void printmat(float** matrix, int K)
 {
+	/*
+	To print matrix on display
+	*/
 	int i,j;
 	
 	for (i=0;i<K;i++)
@@ -87,6 +100,9 @@ void printmat(float** matrix, int K)
 
 void printtofile(float** matrix, int K, char* filename)
 {
+	/*
+	Prints original 2D matrices to file
+	*/
 	FILE *fp;
 	fp=fopen(filename,"wt");
 	int i,j;
@@ -102,6 +118,9 @@ void printtofile(float** matrix, int K, char* filename)
 
 void printtofile1D(float* matrix, int K, char* filename)
 {
+	/*
+	Prints resultant matrix to a file
+	*/
 	FILE *fp;
 	fp=fopen(filename,"wt");
 	int i,j;
@@ -119,6 +138,9 @@ void printtofile1D(float* matrix, int K, char* filename)
 
 void freese(int sizeX, float** ptr)
 {
+	/*
+	Function used to free up all the 2D matrices created
+	*/
     int i;
      for (i=0;i<sizeX;i++)
         free(ptr[i]);
@@ -176,6 +198,7 @@ int main(int argc, char *argv[])
 	}
 	
 	//printf("\n Converted to flat");
+	//Transferring matrices from Host to Device
 	cudaEventRecord(start,0);
 	cudaMalloc((void **) &M1_device_flat, sizeof(float)*K*K);
 	cudaMalloc((void **) &M2_device_flat, sizeof(float)*K*K);
@@ -187,42 +210,31 @@ int main(int argc, char *argv[])
 	cudaMemcpy(Prod_device_flat, Prod_host_flat, sizeof(float)*K*K, cudaMemcpyHostToDevice);
 	cudaMemcpy(K_device, &K, sizeof(int), cudaMemcpyHostToDevice);
 	//Kernel call
+	
 	dim3 threads(threadblocks,threadblocks);
 	dim3 grid(blocks,blocks);
+	
 	cudaEventRecord(start_kernel,0);
-	//printf("\n Calling the multiply kernel");
+	
 	multiply<<<grid,threads>>>(M1_device_flat,M2_device_flat,Prod_device_flat, K); 
+	
 	cudaEventRecord(stop_kernel,0);
-	//Copy data back to host
-	//printf("\n Back in host\n");
+	
+	//Transferring result matrix from Device to Host
 	cudaMemcpy(Prod_host_flat, Prod_device_flat, sizeof(int)*K*K, cudaMemcpyDeviceToHost);	
+	
 	cudaEventRecord(stop,0);
 	cudaEventSynchronize(stop);
 
 	cudaEventElapsedTime(&time, start, stop);
 	cudaEventElapsedTime(&time_kernel, start_kernel, stop_kernel);
+	
 	printf("\nTime for kernel with data transfer = %f ms \n", time);
 	printf("\nTime for kernel without data transfer = %f ms \n", time_kernel); 
-	/*
-	counter=0;
-	printf("\n");
-	printf("\n");
-	printf("\n");
-	for (i=0;i<K;i++)
-	{
-		//fprintf(results_file,"\n");
-		printf("\n");
-		for (j=0;j<K;j++)
-		{
-			printf("%f ", Prod_host_flat[counter]);
-			counter+=1;
-		}
-	}
-	printf("\n");
-	*/
-	
+		
 	printtofile1D(Prod_host_flat,K,"Prod_result.txt");
 	
+	//Freeing up all the memory that was used
 	cudaFree(M1_device_flat);
 	cudaFree(M2_device_flat);
 	cudaFree(Prod_device_flat);
